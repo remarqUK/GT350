@@ -1,0 +1,3 @@
+# Delivery/transport artifacts (not source)
+*.bundle
+docs/*.bundle

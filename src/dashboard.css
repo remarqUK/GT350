@@ -14,10 +14,11 @@
   --gold: #d6a419; /* achieved trend line */
   --ink-line: #9aa4af; /* asking trend line */
 
-  /* Validated categorical region hues (dark surface) */
-  --europe: #3987e5;
-  --na: #d95926;
-  --japan: #199e70;
+  /* Validated categorical region hues (dark surface); actual point colours
+     come from REGIONS in data.js — these mirror them for reference. */
+  --uk: #3987e5;
+  --europe: #d95926;
+  --overseas: #199e70;
 }
 
 * {
@@ -270,6 +271,13 @@ body {
   color: var(--good);
   font-weight: 700;
 }
+.tooltip .tt-link {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid var(--border);
+  color: var(--accent-2);
+  font-weight: 600;
+}
 
 /* Legend */
 .legend {
@@ -385,6 +393,14 @@ td {
 th {
   color: var(--muted);
   font-weight: 600;
+}
+.advert-link {
+  color: var(--accent-2);
+  text-decoration: none;
+  font-weight: 600;
+}
+.advert-link:hover {
+  text-decoration: underline;
 }
 
 /* Explain + footer */

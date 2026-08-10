@@ -63,13 +63,12 @@ async function loadDataset() {
 }
 
 function guessRegion(l) {
-  // Our marketplaces are all UK, so a live listing is by default a car already
-  // in the UK (Europe region → minimal landing cost). Only override when the
-  // listing text clearly says the car is a fresh US/Japan import.
+  // Landed-cost tier. UK marketplaces default to a car already in the UK; only
+  // override when the listing text says it's a mainland-EU or overseas import.
   const s = `${l.site || ''} ${l.location || ''} ${l.title || ''}`.toLowerCase();
-  if (/\bjapan|jdm\b/.test(s)) return 'japan';
-  if (/\bus import|american import|fresh import\b/.test(s)) return 'na';
-  return 'europe';
+  if (/\bjapan|jdm|us import|american import|canada|canadian|fresh import\b/.test(s)) return 'overseas';
+  if (/\beu import|european import|germany|france|netherlands|belgium|spain|italy|ireland\b/.test(s)) return 'europe';
+  return 'uk';
 }
 
 // --- price basis -------------------------------------------------------------
@@ -220,7 +219,32 @@ function renderStats(live) {
   document.getElementById('statMiles').textContent = avgMi ? `${NUM.format(avgMi)} mi` : '—';
 }
 
-// --- tooltip -----------------------------------------------------------------
+// --- advert links ------------------------------------------------------------
+
+// The advert to open for a point. Live-fetched listings carry a real URL; seed
+// cars have none, so we fall back to a pre-filled marketplace search for that
+// exact spec (region-appropriate) — the user still lands on relevant results.
+function advertUrl(p) {
+  if (p.url) return p.url;
+  const model = p.model === 'gt350r' ? 'Shelby GT350R' : 'Shelby GT350';
+  const q = encodeURIComponent(`${p.year || ''} Ford Mustang ${model}`.trim());
+  if (p.region === 'uk') {
+    return `https://www.autotrader.co.uk/car-search?make=FORD&model=MUSTANG&keywords=${q}`;
+  }
+  if (p.region === 'overseas') {
+    return `https://www.autotrader.com/cars-for-sale/all/ford/mustang?keywordPhrases=${q}`;
+  }
+  // Mainland Europe
+  return `https://www.google.com/search?q=${q}+for+sale`;
+}
+
+function openAdvert(p) {
+  const url = advertUrl(p);
+  if (chrome?.tabs?.create) chrome.tabs.create({ url });
+  else window.open(url, '_blank', 'noopener');
+}
+
+// --- tooltip + click ---------------------------------------------------------
 
 function wireTooltips() {
   const fig = document.querySelector('.chart-figure');
@@ -228,20 +252,23 @@ function wireTooltips() {
   const byId = new Map(state.listings.map((p) => [String(p.id), p]));
 
   fig.querySelectorAll('.pt').forEach((el) => {
-    const show = (evt) => {
-      const p = byId.get(el.getAttribute('data-id'));
+    const p = byId.get(el.getAttribute('data-id'));
+    if (p) el.setAttribute('data-url', advertUrl(p));
+    const show = () => {
       if (!p) return;
       const meta = regionMeta(p.region);
       const val = valueOf(p);
       const statusLabel =
         p.status === 'sold' ? 'Achieved sale' : p.status === 'reference' ? 'Reference (excluded)' : 'For sale now';
       const basisLabel = state.basis === 'landed' ? 'Landed UK' : (p.status === 'sold' ? 'Achieved' : 'Asking');
+      const linkLabel = p.url ? 'View advert →' : 'Search this car →';
       tip.innerHTML =
         `<div class="tt-title">${p.year || ''} ${p.model === 'gt350r' ? 'GT350R' : 'GT350'}</div>` +
         `<div class="tt-row">${meta.label} · ${statusLabel}</div>` +
         `<div class="tt-row">${NUM.format(p.mileage)} mi</div>` +
         `<div class="tt-price">${GBP.format(val)} <span class="tt-row" style="font-weight:400">${basisLabel}</span></div>` +
-        (p.note ? `<div class="tt-row">${escapeHtml(p.note)}</div>` : '');
+        (p.note ? `<div class="tt-row">${escapeHtml(p.note)}</div>` : '') +
+        `<div class="tt-link">${linkLabel}</div>`;
       const figRect = fig.getBoundingClientRect();
       const r = el.getBoundingClientRect();
       tip.style.left = `${r.left + r.width / 2 - figRect.left}px`;
@@ -252,6 +279,13 @@ function wireTooltips() {
     el.addEventListener('focus', show);
     el.addEventListener('mouseleave', () => (tip.hidden = true));
     el.addEventListener('blur', () => (tip.hidden = true));
+    el.addEventListener('click', () => p && openAdvert(p));
+    el.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' || e.key === ' ') && p) {
+        e.preventDefault();
+        openAdvert(p);
+      }
+    });
   });
 }
 
@@ -288,7 +322,7 @@ function renderTable() {
     .sort((a, b) => valueOf(a) - valueOf(b))
     .map(
       (p) =>
-        `<tr><td>${p.year || ''} ${p.model === 'gt350r' ? 'GT350R' : 'GT350'}</td>` +
+        `<tr><td><a class="advert-link" href="${advertUrl(p)}" target="_blank" rel="noopener">${p.year || ''} ${p.model === 'gt350r' ? 'GT350R' : 'GT350'} →</a></td>` +
         `<td>${regionMeta(p.region).label}</td>` +
         `<td>${p.status}</td>` +
         `<td>${NUM.format(p.mileage)}</td>` +

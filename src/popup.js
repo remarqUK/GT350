@@ -81,7 +81,7 @@ async function runSearch() {
             ...l,
             site: site.name,
             currency: site.currency || 'GBP',
-            region: site.region || 'europe',
+            region: site.region || 'uk',
           });
         }
       } catch (err) {

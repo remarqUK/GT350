@@ -6,7 +6,7 @@
 // (see dashboard.js → loadDataset).
 //
 // Fields:
-//   region : 'europe' | 'na' | 'japan'   — where the car currently is
+//   region : 'uk' | 'europe' | 'overseas'  — landed-cost tier (where the car is)
 //   status : 'live'  — for sale now, price is the asking price
 //            'sold'  — a completed sale, price is what it actually made
 //            'reference' — notable stock excluded from the trend (outlier / unconfirmed)
@@ -18,40 +18,40 @@
 export const SEED_LISTINGS = [
   // ---- Live inventory (asking prices) ----
   { id: 'e1', model: 'gt350', year: 2016, region: 'europe', status: 'live', mileage: 34000, price: 78500, code: '', note: 'Germany, Avalanche Grey' },
-  { id: 'e2', model: 'gt350', year: 2017, region: 'europe', status: 'live', mileage: 47000, price: 71000 },
-  { id: 'e3', model: 'gt350r', year: 2016, region: 'europe', status: 'live', mileage: 71000, price: 74000, code: 'E3', note: 'GT350R, track pack' },
-  { id: 'e4', model: 'gt350', year: 2018, region: 'europe', status: 'live', mileage: 71500, price: 58500 },
-  { id: 'e5', model: 'gt350', year: 2019, region: 'europe', status: 'live', mileage: 72500, price: 47500 },
-  { id: 'e6', model: 'gt350', year: 2016, region: 'europe', status: 'live', mileage: 86000, price: 49000 },
-  { id: 'e7', model: 'gt350', year: 2020, region: 'europe', status: 'live', mileage: 97000, price: 52000 },
+  { id: 'e2', model: 'gt350', year: 2017, region: 'uk', status: 'live', mileage: 47000, price: 71000 },
+  { id: 'e3', model: 'gt350r', year: 2016, region: 'europe', status: 'live', mileage: 71000, price: 74000, code: 'E3', note: 'Germany — GT350R, track pack' },
+  { id: 'e4', model: 'gt350', year: 2018, region: 'uk', status: 'live', mileage: 71500, price: 58500 },
+  { id: 'e5', model: 'gt350', year: 2019, region: 'uk', status: 'live', mileage: 72500, price: 47500 },
+  { id: 'e6', model: 'gt350', year: 2016, region: 'uk', status: 'live', mileage: 86000, price: 49000 },
+  { id: 'e7', model: 'gt350', year: 2020, region: 'uk', status: 'live', mileage: 97000, price: 52000 },
 
-  { id: 'n1', model: 'gt350', year: 2016, region: 'na', status: 'live', mileage: 38000, price: 72500 },
-  { id: 'n2', model: 'gt350r', year: 2017, region: 'na', status: 'live', mileage: 62000, price: 80500, code: 'N2', note: 'GT350R, one owner' },
-  { id: 'n3', model: 'gt350', year: 2018, region: 'na', status: 'live', mileage: 70000, price: 55000 },
-  { id: 'n4', model: 'gt350', year: 2019, region: 'na', status: 'live', mileage: 74000, price: 51000 },
-  { id: 'n5', model: 'gt350', year: 2016, region: 'na', status: 'live', mileage: 88000, price: 47000 },
-  { id: 'n6', model: 'gt350', year: 2017, region: 'na', status: 'live', mileage: 100500, price: 48500 },
+  { id: 'n1', model: 'gt350', year: 2016, region: 'overseas', status: 'live', mileage: 38000, price: 72500 },
+  { id: 'n2', model: 'gt350r', year: 2017, region: 'overseas', status: 'live', mileage: 62000, price: 80500, code: 'N2', note: 'GT350R, one owner' },
+  { id: 'n3', model: 'gt350', year: 2018, region: 'overseas', status: 'live', mileage: 70000, price: 55000 },
+  { id: 'n4', model: 'gt350', year: 2019, region: 'overseas', status: 'live', mileage: 74000, price: 51000 },
+  { id: 'n5', model: 'gt350', year: 2016, region: 'overseas', status: 'live', mileage: 88000, price: 47000 },
+  { id: 'n6', model: 'gt350', year: 2017, region: 'overseas', status: 'live', mileage: 100500, price: 48500 },
 
-  { id: 'j1', model: 'gt350', year: 2016, region: 'japan', status: 'live', mileage: 83000, price: 79500 },
-  { id: 'j2', model: 'gt350r', year: 2017, region: 'japan', status: 'live', mileage: 95000, price: 66000 },
-  { id: 'j3', model: 'gt350', year: 2018, region: 'japan', status: 'live', mileage: 96000, price: 64500 },
-  { id: 'j4', model: 'gt350', year: 2019, region: 'japan', status: 'live', mileage: 101000, price: 56500, code: 'J4', note: 'Japan, low-owner' },
-  { id: 'j5', model: 'gt350', year: 2016, region: 'japan', status: 'live', mileage: 99000, price: 62000 },
-  { id: 'j6', model: 'gt350', year: 2020, region: 'japan', status: 'live', mileage: 104000, price: 55500 },
-  { id: 'j7', model: 'gt350', year: 2017, region: 'japan', status: 'live', mileage: 100000, price: 53500 },
+  { id: 'j1', model: 'gt350', year: 2016, region: 'overseas', status: 'live', mileage: 83000, price: 79500 },
+  { id: 'j2', model: 'gt350r', year: 2017, region: 'overseas', status: 'live', mileage: 95000, price: 66000 },
+  { id: 'j3', model: 'gt350', year: 2018, region: 'overseas', status: 'live', mileage: 96000, price: 64500 },
+  { id: 'j4', model: 'gt350', year: 2019, region: 'overseas', status: 'live', mileage: 101000, price: 56500, code: 'J4', note: 'Japan, low-owner' },
+  { id: 'j5', model: 'gt350', year: 2016, region: 'overseas', status: 'live', mileage: 99000, price: 62000 },
+  { id: 'j6', model: 'gt350', year: 2020, region: 'overseas', status: 'live', mileage: 104000, price: 55500 },
+  { id: 'j7', model: 'gt350', year: 2017, region: 'overseas', status: 'live', mileage: 100000, price: 53500 },
 
   // ---- Completed sales (achieved evidence) ----
-  { id: 's1', model: 'gt350', year: 2016, region: 'europe', status: 'sold', mileage: 36000, price: 68000, note: 'Sold — UK auction' },
-  { id: 's2', model: 'gt350', year: 2017, region: 'europe', status: 'sold', mileage: 55000, price: 60500, note: 'Sold — private' },
-  { id: 's3', model: 'gt350r', year: 2016, region: 'na', status: 'sold', mileage: 69000, price: 63500, note: 'Sold — dealer' },
-  { id: 's4', model: 'gt350', year: 2018, region: 'na', status: 'sold', mileage: 71000, price: 57500, note: 'Sold — Manor, TX (confirmed)' },
-  { id: 's5', model: 'gt350', year: 2019, region: 'na', status: 'sold', mileage: 86000, price: 49500, note: 'Sold — auction' },
-  { id: 's6', model: 'gt350', year: 2016, region: 'na', status: 'sold', mileage: 100000, price: 47000, note: 'Sold — retail' },
+  { id: 's1', model: 'gt350', year: 2016, region: 'uk', status: 'sold', mileage: 36000, price: 68000, note: 'Sold — UK auction' },
+  { id: 's2', model: 'gt350', year: 2017, region: 'uk', status: 'sold', mileage: 55000, price: 60500, note: 'Sold — private' },
+  { id: 's3', model: 'gt350r', year: 2016, region: 'overseas', status: 'sold', mileage: 69000, price: 63500, note: 'Sold — dealer' },
+  { id: 's4', model: 'gt350', year: 2018, region: 'overseas', status: 'sold', mileage: 71000, price: 57500, note: 'Sold — Manor, TX (confirmed)' },
+  { id: 's5', model: 'gt350', year: 2019, region: 'overseas', status: 'sold', mileage: 86000, price: 49500, note: 'Sold — auction' },
+  { id: 's6', model: 'gt350', year: 2016, region: 'overseas', status: 'sold', mileage: 100000, price: 47000, note: 'Sold — retail' },
 
   // ---- Reference stock, excluded from the trend ----
-  { id: 'r1', model: 'gt350r', year: 2016, region: 'europe', status: 'reference', mileage: 14000, price: 83000, note: 'Delivery-mileage collector car — excluded' },
-  { id: 'r2', model: 'gt350r', year: 2020, region: 'na', status: 'reference', mileage: 70000, price: 92000, note: 'Heritage Edition ask, unconfirmed — excluded' },
-  { id: 'r3', model: 'gt350', year: 2017, region: 'europe', status: 'reference', mileage: 40000, price: 85000, note: 'Unconfirmed forum ask — excluded' },
+  { id: 'r1', model: 'gt350r', year: 2016, region: 'uk', status: 'reference', mileage: 14000, price: 83000, note: 'Delivery-mileage collector car — excluded' },
+  { id: 'r2', model: 'gt350r', year: 2020, region: 'overseas', status: 'reference', mileage: 70000, price: 92000, note: 'Heritage Edition ask, unconfirmed — excluded' },
+  { id: 'r3', model: 'gt350', year: 2017, region: 'europe', status: 'reference', mileage: 40000, price: 85000, note: 'Netherlands — unconfirmed forum ask, excluded' },
 ];
 
 // --- Currency ---------------------------------------------------------------
@@ -66,31 +66,37 @@ export function toGBP(price, currency = 'GBP') {
 }
 
 // --- Landed UK cost ---------------------------------------------------------
-// For an overseas import: take the GBP-converted price, add 10% import duty,
-// add 20% VAT, then add £3,000 shipping. Cars already in the UK land as-is.
-export const UK_SHIPPING = 3000;
-export function importLanded(priceGBP) {
-  return Math.round(priceGBP * 1.1 * 1.2 + UK_SHIPPING);
+// Any import outside the UK carries 10% duty + 20% VAT on the GBP-converted
+// price, plus shipping. Mainland Europe is a short haul; the US/Canada/Japan
+// is a container across an ocean. Cars already in the UK land as-is.
+export const OVERSEAS_SHIPPING = 3000; // US / Canada / Japan
+export const EU_SHIPPING = 600; // mainland Europe (ferry / short transporter)
+export function importLanded(priceGBP, shipping = OVERSEAS_SHIPPING) {
+  return Math.round(priceGBP * 1.1 * 1.2 + shipping);
 }
 
-// Region metadata: display label, chart hue (validated dark-mode categorical
-// slots 1–3), and how to land the car in the UK.
+// Region = landed-cost tier. Colours use validated dark-mode categorical slots
+// 1–3 (a scatter can't stay colourblind-safe past three), so the US, Canada
+// and Japan — which now share one import formula — sit in a single "Overseas"
+// tier. The tooltip still names the actual source.
 export const REGIONS = {
-  europe: {
-    label: 'UK / Europe',
+  uk: {
+    label: 'UK',
     color: '#3987e5',
-    // Car is already in the UK market — no import duty/VAT/shipping to add.
+    // Already in the UK market — no duty/VAT/shipping to add.
     landed: (price) => price,
   },
-  na: {
-    label: 'USA / Canada',
+  europe: {
+    label: 'Europe',
     color: '#d95926',
-    landed: importLanded,
+    // Mainland EU import: 10% duty + 20% VAT + short-haul shipping.
+    landed: (price) => importLanded(price, EU_SHIPPING),
   },
-  japan: {
-    label: 'Japan',
+  overseas: {
+    label: 'USA / Canada / Japan',
     color: '#199e70',
-    landed: importLanded,
+    // Overseas import: 10% duty + 20% VAT + £3,000 shipping.
+    landed: (price) => importLanded(price, OVERSEAS_SHIPPING),
   },
 };
 

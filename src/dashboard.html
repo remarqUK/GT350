@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GT350 Hunter — Market Dashboard</title>
+    <link rel="stylesheet" href="dashboard.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="app-header">
+        <div class="brand">
+          <span class="brand-mark">GT350</span>
+          <span class="brand-sub">Hunter · Market</span>
+        </div>
+        <p class="tagline">2015–2020 Shelby GT350 &amp; GT350R — asking vs achieved</p>
+      </header>
+
+      <!-- Mileage vs price card -->
+      <section class="card">
+        <h2 class="card-title">Mileage vs price</h2>
+        <p id="subhead" class="card-sub">Loading market data…</p>
+
+        <div class="toggle" role="tablist" aria-label="Price basis">
+          <button id="tgAsking" class="toggle-btn active" role="tab" aria-selected="true">
+            Asking / achieved
+          </button>
+          <button id="tgLanded" class="toggle-btn" role="tab" aria-selected="false">
+            Landed UK cost
+          </button>
+        </div>
+
+        <figure class="chart-figure">
+          <div id="chart" class="chart" role="img" aria-label="Scatter plot of price against mileage"></div>
+          <div id="tooltip" class="tooltip" hidden></div>
+        </figure>
+
+        <div class="legend">
+          <div class="legend-group" id="regionLegend"></div>
+          <div class="legend-group">
+            <span class="legend-item"><span class="glyph glyph-diamond"></span>Achieved sale (evidence)</span>
+            <span class="legend-item"><span class="glyph glyph-ring"></span>Reference stock, excluded from trend</span>
+          </div>
+        </div>
+
+        <!-- Stat tiles -->
+        <div class="stats">
+          <div class="stat">
+            <span class="stat-label">Cheapest</span>
+            <span class="stat-value good" id="statMin">—</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Median</span>
+            <span class="stat-value" id="statMedian">—</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Most expensive</span>
+            <span class="stat-value bad" id="statMax">—</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Avg mileage</span>
+            <span class="stat-value" id="statMiles">—</span>
+          </div>
+        </div>
+
+        <button id="tableToggle" class="link">Show data table</button>
+        <div id="tableWrap" class="table-wrap" hidden></div>
+      </section>
+
+      <!-- How to read it -->
+      <section class="card explain">
+        <p>
+          <strong>How to read it.</strong> Filled circles are cars you can buy
+          today, at the seller's asking price converted to GBP. Hollow diamonds
+          are cars that actually sold, at the price they really made. The two
+          trend lines are the point: <strong>the gap between them is how far
+          asking sits above evidence.</strong> Switch to “Landed UK cost” to see
+          what each live car would really cost on the driveway including
+          transport, duty, VAT and registration — achieved sales move up too.
+        </p>
+        <p class="muted">
+          Colours are where the car is now. Hollow circles are reference stock
+          (delivery-mileage collector cars, unconfirmed asks) held out of the
+          trend so a few outliers don't bend the line.
+        </p>
+        <p class="muted src-note" id="srcNote"></p>
+      </section>
+
+      <footer class="app-footer">
+        <span>GT350 Hunter</span>
+        <a class="link" href="popup.html" target="_blank" rel="noopener">Open search →</a>
+      </footer>
+    </div>
+
+    <script type="module" src="dashboard.js"></script>
+  </body>
+</html>

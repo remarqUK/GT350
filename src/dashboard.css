@@ -1,0 +1,371 @@
+:root {
+  --bg: #0d1117;
+  --panel: #161b22;
+  --panel-2: #1c232d;
+  --border: #2a323d;
+  --grid: #232b35;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --accent: #2f81f7;
+  --accent-2: #58a6ff;
+  --stripe: #c9d1d9;
+  --good: #3fb950;
+  --bad: #f85149;
+  --gold: #d6a419; /* achieved trend line */
+  --ink-line: #9aa4af; /* asking trend line */
+
+  /* Validated categorical region hues (dark surface) */
+  --europe: #3987e5;
+  --na: #d95926;
+  --japan: #199e70;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+}
+.wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 16px 40px;
+}
+
+/* Header */
+.app-header {
+  position: relative;
+  padding: 20px 4px 16px;
+}
+.app-header::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 18px;
+  bottom: 14px;
+  width: 8px;
+  background: repeating-linear-gradient(
+    180deg,
+    var(--stripe) 0 6px,
+    transparent 6px 12px
+  );
+  opacity: 0.16;
+}
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-left: 18px;
+}
+.brand-mark {
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: 1px;
+  color: #fff;
+}
+.brand-sub {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--accent-2);
+  text-transform: uppercase;
+  letter-spacing: 3px;
+}
+.tagline {
+  margin: 6px 0 0 18px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* Cards */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 18px 16px;
+  margin-top: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+.card-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+.card-sub {
+  margin: 6px 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Toggle */
+.toggle {
+  display: inline-flex;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+  margin: 0 auto 14px;
+  gap: 3px;
+}
+.chart-figure {
+  position: relative;
+  margin: 0;
+}
+.toggle-btn {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.toggle-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+.toggle {
+  display: flex;
+  justify-content: center;
+}
+.toggle-row {
+  display: flex;
+  justify-content: center;
+}
+
+/* Chart */
+.chart {
+  width: 100%;
+}
+.chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+.grid-line {
+  stroke: var(--grid);
+  stroke-width: 1;
+}
+.axis-line {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.axis-label {
+  fill: var(--muted);
+  font-size: 10px;
+}
+.axis-title {
+  fill: var(--muted);
+  font-size: 10.5px;
+}
+.trend {
+  stroke-width: 2;
+  fill: none;
+  stroke-dasharray: 6 5;
+}
+.trend-asking {
+  stroke: var(--ink-line);
+}
+.trend-achieved {
+  stroke: var(--gold);
+}
+.trend-tag {
+  font-size: 10px;
+  font-weight: 600;
+}
+.pt {
+  cursor: pointer;
+  transition: opacity 0.1s ease;
+}
+.pt:hover {
+  opacity: 0.85;
+}
+.pt-ring {
+  fill: none;
+  stroke-width: 2;
+}
+.pt-label {
+  fill: var(--text);
+  font-size: 9.5px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+/* Tooltip */
+.tooltip {
+  position: absolute;
+  z-index: 5;
+  min-width: 150px;
+  max-width: 240px;
+  background: #0b0f14;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  pointer-events: none;
+  box-shadow: var(--shadow, 0 6px 20px rgba(0, 0, 0, 0.5));
+  transform: translate(-50%, calc(-100% - 12px));
+}
+.tooltip .tt-title {
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+.tooltip .tt-row {
+  color: var(--muted);
+}
+.tooltip .tt-price {
+  color: var(--good);
+  font-weight: 700;
+}
+
+/* Legend */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 12px 2px 4px;
+}
+.legend-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text);
+}
+.dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.glyph {
+  width: 13px;
+  height: 13px;
+  display: inline-block;
+  position: relative;
+}
+.glyph-diamond::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border: 1.5px solid var(--muted);
+  transform: rotate(45deg);
+}
+.glyph-ring::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border: 1.5px solid var(--muted);
+  border-radius: 50%;
+}
+
+/* Stats */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin-top: 18px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.stat {
+  background: var(--panel);
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  text-align: center;
+}
+.stat-label {
+  font-size: 10.5px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.stat-value {
+  font-size: 22px;
+  font-weight: 800;
+}
+.stat-value.good {
+  color: var(--good);
+}
+.stat-value.bad {
+  color: var(--bad);
+}
+
+/* Table */
+.table-wrap {
+  margin-top: 12px;
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+th,
+td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* Explain + footer */
+.explain p {
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+.muted {
+  color: var(--muted);
+}
+.src-note {
+  font-size: 11.5px;
+}
+.app-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.link {
+  background: none;
+  border: 0;
+  color: var(--accent-2);
+  cursor: pointer;
+  font-size: 12.5px;
+  text-decoration: none;
+  padding: 4px 0;
+}
+.link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 520px) {
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .stat-value {
+    font-size: 19px;
+  }
+}

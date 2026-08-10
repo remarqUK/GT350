@@ -30,6 +30,21 @@
           </button>
         </div>
 
+        <div class="filters">
+          <div class="filter-group" id="statusFilter">
+            <span class="filter-label">Show</span>
+            <button class="chip active" data-status="all">All</button>
+            <button class="chip" data-status="live">For sale</button>
+            <button class="chip" data-status="sold">Sold</button>
+          </div>
+          <div class="filter-group" id="modelFilter">
+            <span class="filter-label">Model</span>
+            <button class="chip active" data-model="all">Both</button>
+            <button class="chip" data-model="gt350">GT350</button>
+            <button class="chip" data-model="gt350r">GT350R</button>
+          </div>
+        </div>
+
         <figure class="chart-figure">
           <div id="chart" class="chart" role="img" aria-label="Scatter plot of price against mileage"></div>
           <div id="tooltip" class="tooltip" hidden></div>

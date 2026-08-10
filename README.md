@@ -15,7 +15,8 @@ cost** of importing an overseas car.
 - **Market dashboard.** A mileage-vs-price scatter with two trend lines —
   **asking** vs **achieved (sold)** — so you can see how far asking sits above
   real evidence. Stat tiles show cheapest / median / most expensive / average
-  mileage.
+  mileage. Filter by **status** (all / for sale / sold), by **model** (GT350 /
+  GT350R), and toggle **regions** on/off by tapping the legend.
 - **Landed UK cost.** Toggle between raw prices and the real cost on your
   driveway. Overseas cars are converted to GBP, then **+10% import duty, +20%
   VAT, +£3,000 shipping**. UK cars land as-is.

@@ -1,5 +1,5 @@
 // dashboard.js — renders the GT350 market view (mileage vs price).
-import { SEED_LISTINGS, regionMeta, REGIONS, toGBP } from './data.js';
+import { SEED_LISTINGS, regionMeta, REGIONS, toGBP, FX } from './data.js';
 
 const GBP = new Intl.NumberFormat('en-GB', {
   style: 'currency',
@@ -12,7 +12,24 @@ const state = {
   basis: 'asking', // 'asking' | 'landed'
   listings: [],
   liveMerged: 0,
+  filters: {
+    status: 'all', // 'all' | 'live' | 'sold'
+    model: 'all', // 'all' | 'gt350' | 'gt350r'
+    regions: new Set(Object.keys(REGIONS)),
+  },
 };
+
+// Points passing the current filter set. Reference stock only shows under "All".
+function visible() {
+  const f = state.filters;
+  return state.listings.filter((p) => {
+    if (f.model !== 'all' && p.model !== f.model) return false;
+    if (!f.regions.has(p.region)) return false;
+    if (f.status === 'live' && p.status !== 'live') return false;
+    if (f.status === 'sold' && p.status !== 'sold') return false;
+    return true;
+  });
+}
 
 // --- data loading ------------------------------------------------------------
 
@@ -102,11 +119,20 @@ const plotW = W - M.left - M.right;
 const plotH = H - M.top - M.bottom;
 
 function render() {
-  const live = state.listings.filter((p) => p.status === 'live');
-  const sold = state.listings.filter((p) => p.status === 'sold');
+  const pts = visible();
+  const live = pts.filter((p) => p.status === 'live');
+  const sold = pts.filter((p) => p.status === 'sold');
 
-  const values = state.listings.map(valueOf);
-  const miles = state.listings.map((p) => p.mileage);
+  const chart = document.getElementById('chart');
+  if (!pts.length) {
+    chart.innerHTML = `<div class="chart-empty">No cars match these filters. Turn a region back on, or widen the model/status filters.</div>`;
+    document.getElementById('subhead').textContent = '0 live, 0 sold';
+    renderStats([]);
+    return;
+  }
+
+  const values = pts.map(valueOf);
+  const miles = pts.map((p) => p.mileage);
 
   const xMax = niceCeil(Math.max(...miles, 100000), 20000);
   const yMin = niceFloor(Math.min(...values) * 0.98, 20000);
@@ -118,8 +144,10 @@ function render() {
   const askFit = linreg(live);
   const achFit = linreg(sold);
 
-  // Header sentence
-  const slope = askFit ? Math.abs(askFit.m) * 10000 : 0;
+  // Header sentence — depreciation per 10k miles, from asking where available,
+  // else from achieved (e.g. when viewing sold cars only).
+  const fit = askFit || achFit;
+  const slope = fit ? Math.abs(fit.m) * 10000 : 0;
   document.getElementById('subhead').textContent =
     `${live.length} live, ${sold.length} sold · every 10,000 miles is worth about ${GBP.format(Math.round(slope))}`;
 
@@ -156,7 +184,7 @@ function render() {
   drawTrend(achFit, 'trend-achieved', 'Achieved');
 
   // Points
-  for (const p of state.listings) {
+  for (const p of pts) {
     const x = sx(p.mileage), y = sy(valueOf(p));
     const color = regionMeta(p.region).color;
     const common = `class="pt" data-id="${p.id}" tabindex="0"`;
@@ -174,10 +202,12 @@ function render() {
     }
   }
 
-  document.getElementById('chart').innerHTML =
+  chart.innerHTML =
     `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" font-family="inherit">${parts.join('')}</svg>`;
 
-  renderStats(live);
+  // Stat tiles describe the priced market that's in focus.
+  const statBase = state.filters.status === 'sold' ? sold : live.length ? live : sold;
+  renderStats(statBase);
   wireTooltips();
 }
 
@@ -235,14 +265,25 @@ function renderLegend() {
   const el = document.getElementById('regionLegend');
   el.innerHTML = Object.entries(REGIONS)
     .map(
-      ([, meta]) =>
-        `<span class="legend-item"><span class="dot" style="background:${meta.color}"></span>${meta.label}</span>`
+      ([id, meta]) =>
+        `<button class="legend-item" data-region="${id}" title="Toggle ${meta.label}"><span class="dot" style="background:${meta.color}"></span>${meta.label}</button>`
     )
     .join('');
+  el.querySelectorAll('[data-region]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.region;
+      const regions = state.filters.regions;
+      if (regions.has(id) && regions.size > 1) regions.delete(id);
+      else regions.add(id);
+      btn.classList.toggle('off', !regions.has(id));
+      render();
+      if (!document.getElementById('tableWrap').hidden) renderTable();
+    });
+  });
 }
 
 function renderTable() {
-  const rows = state.listings
+  const rows = visible()
     .slice()
     .sort((a, b) => valueOf(a) - valueOf(b))
     .map(
@@ -273,9 +314,25 @@ function setBasis(basis) {
 function updateSourceNote() {
   const el = document.getElementById('srcNote');
   const base = `Seed dataset of ${SEED_LISTINGS.length} reference cars.`;
-  el.textContent = state.liveMerged
-    ? `${base} Merged ${state.liveMerged} live listing(s) from your last search. Prices are estimates in GBP.`
-    : `${base} Run a search from the popup to merge live listings. Prices are estimates in GBP.`;
+  const merge = state.liveMerged
+    ? `Merged ${state.liveMerged} live listing(s) from your last search.`
+    : `Run a search from the popup to merge live listings.`;
+  const fx = `FX used: $1 = £${FX.USD}, C$1 = £${FX.CAD}. Prices are estimates in GBP.`;
+  el.textContent = `${base} ${merge} ${fx}`;
+}
+
+// Chip group where exactly one option is active; runs onPick(value) on change.
+function wireChipGroup(containerId, dataKey, onPick) {
+  const container = document.getElementById(containerId);
+  container.querySelectorAll('.chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      container.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
+      chip.classList.add('active');
+      onPick(chip.dataset[dataKey]);
+      render();
+      if (!document.getElementById('tableWrap').hidden) renderTable();
+    });
+  });
 }
 
 // --- init --------------------------------------------------------------------
@@ -288,6 +345,9 @@ async function init() {
 
   document.getElementById('tgAsking').addEventListener('click', () => setBasis('asking'));
   document.getElementById('tgLanded').addEventListener('click', () => setBasis('landed'));
+
+  wireChipGroup('statusFilter', 'status', (v) => (state.filters.status = v));
+  wireChipGroup('modelFilter', 'model', (v) => (state.filters.model = v));
 
   const tableToggle = document.getElementById('tableToggle');
   tableToggle.addEventListener('click', () => {

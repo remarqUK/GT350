@@ -10,7 +10,7 @@ const $ = (sel) => document.querySelector(sel);
 const YEARS = [2015, 2016, 2017, 2018, 2019, 2020];
 const GBP = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 });
 
-const state = { model: 'both', busy: false };
+const state = { model: 'both', busy: false, quiet: true };
 
 // --- init --------------------------------------------------------------------
 
@@ -32,13 +32,17 @@ function currentFilters() {
   };
 }
 
+function savePrefs() {
+  chrome.storage?.local.set({ prefs: { ...currentFilters(), quiet: state.quiet } });
+}
+
 function setModel(m) {
   state.model = m;
   document.querySelectorAll('.seg').forEach((b) => {
     const on = b.dataset.model === m;
     b.setAttribute('aria-checked', String(on));
   });
-  chrome.storage?.local.set({ prefs: currentFilters() });
+  savePrefs();
 }
 
 async function restorePrefs() {
@@ -48,6 +52,10 @@ async function restorePrefs() {
       if (prefs.yearMin) $('#yearMin').value = String(prefs.yearMin);
       if (prefs.yearMax) $('#yearMax').value = String(prefs.yearMax);
       if (prefs.model) setModel(prefs.model);
+      if (typeof prefs.quiet === 'boolean') {
+        state.quiet = prefs.quiet;
+        $('#quietMode').checked = prefs.quiet;
+      }
     }
   } catch {
     /* first run */
@@ -83,29 +91,36 @@ async function runSearch() {
     $('#status').textContent = `Read ${doneCount}/${SITES.length} sites · ${collected.length} listing${collected.length === 1 ? '' : 's'} so far…`;
   };
 
-  await runPool(SITES, TAB_CONCURRENCY, async (site) => {
-    const card = cards.get(site.id);
-    try {
-      const listings = await openAndScrape(site, filters);
-      const matches = filterListings(listings, filters);
-      card.setListings(matches);
-      for (const l of matches) {
-        collected.push({
-          ...l,
-          site: site.name,
-          currency: site.currency || 'GBP',
-          region: site.region || 'uk',
-        });
+  // In quiet mode the shadow tabs live in a minimised background window so they
+  // don't flicker in front of the user.
+  const host = await makeHostWindow(state.quiet);
+  try {
+    await runPool(SITES, TAB_CONCURRENCY, async (site) => {
+      const card = cards.get(site.id);
+      try {
+        const listings = await openAndScrape(site, filters, host.windowId);
+        const matches = filterListings(listings, filters);
+        card.setListings(matches);
+        for (const l of matches) {
+          collected.push({
+            ...l,
+            site: site.name,
+            currency: site.currency || 'GBP',
+            region: site.region || 'uk',
+          });
+        }
+        // Persist incrementally so the dashboard has data even if the user
+        // closes the popup mid-run.
+        await persist(collected, filters);
+      } catch (err) {
+        card.setError(err);
+      } finally {
+        onOne();
       }
-      // Persist incrementally so the dashboard has data even if the user
-      // closes the popup mid-run.
-      await persist(collected, filters);
-    } catch (err) {
-      card.setError(err);
-    } finally {
-      onOne();
-    }
-  });
+    });
+  } finally {
+    await host.close();
+  }
 
   await persist(collected, filters);
 
@@ -142,11 +157,41 @@ async function runPool(items, concurrency, worker) {
   await Promise.all(runners);
 }
 
+// Create the window that hosts the shadow tabs. In quiet mode this is a
+// dedicated minimised, unfocused window; otherwise tabs open in the current
+// window. Returns { windowId, close() }.
+async function makeHostWindow(quiet) {
+  if (quiet && chrome.windows?.create) {
+    try {
+      const win = await chrome.windows.create({
+        focused: false,
+        state: 'minimized',
+        url: 'about:blank',
+      });
+      return {
+        windowId: win.id,
+        close: async () => {
+          try {
+            await chrome.windows.remove(win.id);
+          } catch {
+            /* already gone */
+          }
+        },
+      };
+    } catch {
+      /* fall through to current-window tabs */
+    }
+  }
+  return { windowId: undefined, close: async () => {} };
+}
+
 // Open a site's search in a background tab, wait for it to render, inject the
 // scraper, and return whatever it read. Always closes the tab.
-async function openAndScrape(site, filters) {
+async function openAndScrape(site, filters, windowId) {
   const url = site.buildSearchUrl(filters);
-  const tab = await chrome.tabs.create({ url, active: false });
+  const createProps = { url, active: false };
+  if (windowId != null) createProps.windowId = windowId;
+  const tab = await chrome.tabs.create(createProps);
   const tabId = tab.id;
   try {
     await waitForComplete(tabId, 20000);
@@ -443,13 +488,16 @@ function main() {
   $('#searchBtn').addEventListener('click', runSearch);
   $('#openAllBtn').addEventListener('click', openAll);
   $('#dashboardBtn')?.addEventListener('click', openDashboard);
-  ['#yearMin', '#yearMax'].forEach((s) => $(s).addEventListener('change', () => chrome.storage?.local.set({ prefs: currentFilters() })));
+  ['#yearMin', '#yearMax'].forEach((s) => $(s).addEventListener('change', savePrefs));
+  $('#quietMode').addEventListener('change', (e) => {
+    state.quiet = e.target.checked;
+    savePrefs();
+  });
 
   $('#prefsToggle').addEventListener('click', () => {
     const a = $('#about');
     a.hidden = !a.hidden;
   });
-  $('#sortBy')?.addEventListener('change', () => {}); // sort handled by dashboard; kept for parity
 }
 
 main();

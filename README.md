@@ -52,27 +52,29 @@ CarGurus · Bring a Trailer · AutoTrader.ca
 
 ## How the data works
 
-- **Prices are estimates in GBP.** FX rates and the import-cost model live in
+- **Shadow-tab reads.** Rather than `fetch()` (which hits bot-walls and misses
+  JavaScript-rendered content), a search briefly opens each site's pre-filtered
+  results in a **background tab**, lets it fully render in the real browser,
+  scrapes the live DOM with an injected function, then closes the tab. You'll
+  see tabs open and close while it works (up to 3 at once). This needs the
+  `scripting` permission.
+- **Real adverts only.** The dashboard shows only cars found by a live search
+  that have a price *and* a mileage *and* a URL, each linking to its actual
+  advert. **eBay UK** parses most reliably; some sites still show a consent or
+  robot page, in which case use their **Open ↗** link. Nothing readable found →
+  the chart stays empty rather than showing placeholder cars.
+- **Prices are estimates.** FX rates and the import-cost model live in
   [`src/data.js`](src/data.js) (`FX`, `importLanded`) — edit them to match
   current rates.
-- **Live reads are best-effort.** Marketplaces frequently block automated
-  requests (Cloudflare, bot checks) or change their markup. When a page can't
-  be read, the extension falls back to the site's own **Open ↗** search, which
-  is already filtered — nothing is silently dropped.
-- **Real adverts only.** The dashboard shows only cars found by a live search,
-  each linking to its actual advert. Because most big UK portals are
-  JavaScript-rendered and bot-protected, a plain extension `fetch` often can't
-  read them — **eBay UK** is the most reliable source. When nothing readable is
-  found, the chart stays empty rather than showing placeholder cars.
 
 ## Project layout
 
 ```
 manifest.json          # MV3 manifest
 src/
-  sites.js             # marketplace definitions: search URLs + parsers
+  sites.js             # marketplace definitions: search URLs, currency, region
   data.js              # FX rates, landed-cost model, region tiers
-  popup.html/.css/.js  # search launcher + live aggregator
+  popup.html/.css/.js  # search launcher + shadow-tab scraper
   dashboard.html/.css/.js  # mileage-vs-price market dashboard
   background.js        # service worker (defaults + context menu)
 icons/                 # generated Shelby-themed icons

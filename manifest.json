@@ -23,7 +23,7 @@
     "service_worker": "src/background.js",
     "type": "module"
   },
-  "permissions": ["storage", "tabs", "contextMenus"],
+  "permissions": ["storage", "tabs", "scripting", "contextMenus"],
   "host_permissions": [
     "https://www.autotrader.co.uk/*",
     "https://www.pistonheads.com/*",

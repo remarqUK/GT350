@@ -1,5 +1,5 @@
 // dashboard.js — renders the GT350 market view (mileage vs price).
-import { SEED_LISTINGS, regionMeta, REGIONS, toGBP, FX } from './data.js';
+import { regionMeta, REGIONS, toGBP, FX } from './data.js';
 
 const GBP = new Intl.NumberFormat('en-GB', {
   style: 'currency',
@@ -11,7 +11,7 @@ const NUM = new Intl.NumberFormat('en-GB');
 const state = {
   basis: 'asking', // 'asking' | 'landed'
   listings: [],
-  liveMerged: 0,
+  liveCount: 0,
   filters: {
     status: 'all', // 'all' | 'live' | 'sold'
     model: 'all', // 'all' | 'gt350' | 'gt350r'
@@ -38,9 +38,10 @@ async function loadDataset() {
   try {
     const store = await chrome.storage?.local.get('listings');
     const raw = Array.isArray(store?.listings) ? store.listings : [];
-    // Only merge points we can actually plot and trust: real mileage + price.
+    // Real adverts only: a point must be plottable (price + mileage) AND open a
+    // genuine listing (has a URL). Anything missing those is not shown.
     live = raw
-      .filter((l) => l && l.price > 0 && l.mileage > 0)
+      .filter((l) => l && l.price > 0 && l.mileage > 0 && l.url)
       .map((l, i) => ({
         id: `fetched-${i}`,
         model: /gt350r/i.test(l.title || '') ? 'gt350r' : 'gt350',
@@ -52,14 +53,15 @@ async function loadDataset() {
         // (duty + VAT + shipping) are applied later by the region model.
         price: toGBP(l.price, l.currency || 'GBP'),
         currency: l.currency || 'GBP',
+        url: l.url,
         note: `${l.site || 'live'} — ${l.title || ''}`.trim(),
         fetched: true,
       }));
   } catch {
     live = [];
   }
-  state.liveMerged = live.length;
-  state.listings = [...SEED_LISTINGS, ...live];
+  state.liveCount = live.length;
+  state.listings = live;
 }
 
 function guessRegion(l) {
@@ -124,8 +126,11 @@ function render() {
 
   const chart = document.getElementById('chart');
   if (!pts.length) {
-    chart.innerHTML = `<div class="chart-empty">No cars match these filters. Turn a region back on, or widen the model/status filters.</div>`;
-    document.getElementById('subhead').textContent = '0 live, 0 sold';
+    const msg = state.listings.length
+      ? 'No cars match these filters. Turn a region back on, or widen the model/status filters.'
+      : 'No live adverts yet. Open the popup, choose your years and model, and run “Search all sites” — real listings with mileage will plot here, and each dot opens the actual advert. (Many big sites block automated reads; eBay UK is the most reliable.)';
+    chart.innerHTML = `<div class="chart-empty">${msg}</div>`;
+    document.getElementById('subhead').textContent = state.listings.length ? '0 shown' : 'No data yet';
     renderStats([]);
     return;
   }
@@ -221,25 +226,15 @@ function renderStats(live) {
 
 // --- advert links ------------------------------------------------------------
 
-// The advert to open for a point. Live-fetched listings carry a real URL; seed
-// cars have none, so we fall back to a pre-filled marketplace search for that
-// exact spec (region-appropriate) — the user still lands on relevant results.
+// Real adverts only: every plotted point came from a live listing and carries
+// its own URL, so a click always opens that exact car.
 function advertUrl(p) {
-  if (p.url) return p.url;
-  const model = p.model === 'gt350r' ? 'Shelby GT350R' : 'Shelby GT350';
-  const q = encodeURIComponent(`${p.year || ''} Ford Mustang ${model}`.trim());
-  if (p.region === 'uk') {
-    return `https://www.autotrader.co.uk/car-search?make=FORD&model=MUSTANG&keywords=${q}`;
-  }
-  if (p.region === 'overseas') {
-    return `https://www.autotrader.com/cars-for-sale/all/ford/mustang?keywordPhrases=${q}`;
-  }
-  // Mainland Europe
-  return `https://www.google.com/search?q=${q}+for+sale`;
+  return p.url || null;
 }
 
 function openAdvert(p) {
   const url = advertUrl(p);
+  if (!url) return;
   if (chrome?.tabs?.create) chrome.tabs.create({ url });
   else window.open(url, '_blank', 'noopener');
 }
@@ -347,12 +342,11 @@ function setBasis(basis) {
 
 function updateSourceNote() {
   const el = document.getElementById('srcNote');
-  const base = `Seed dataset of ${SEED_LISTINGS.length} reference cars.`;
-  const merge = state.liveMerged
-    ? `Merged ${state.liveMerged} live listing(s) from your last search.`
-    : `Run a search from the popup to merge live listings.`;
-  const fx = `FX used: $1 = £${FX.USD}, C$1 = £${FX.CAD}. Prices are estimates in GBP.`;
-  el.textContent = `${base} ${merge} ${fx}`;
+  const src = state.liveCount
+    ? `Showing ${state.liveCount} live advert(s) with mileage from your last search.`
+    : `No live adverts yet — open the popup and run “Search all sites”.`;
+  const fx = `Overseas prices converted to GBP ($1 = £${FX.USD}, C$1 = £${FX.CAD}) — estimates.`;
+  el.textContent = `${src} ${fx}`;
 }
 
 // Chip group where exactly one option is active; runs onPick(value) on change.

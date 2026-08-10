@@ -44,9 +44,11 @@ CarGurus · Bring a Trailer · AutoTrader.ca
   sites**. Each site card shows how many matches were read, with the top
   listings; click a card to expand.
 - **Open all ↗** launches every site's pre-filtered search in its own tab.
-- **📊 Market dashboard** opens the mileage-vs-price view. It merges any live
-  listings from your last search on top of a built-in seed dataset, so the
-  chart is meaningful even before the first search.
+- **📊 Market dashboard** opens the mileage-vs-price view. It plots **real
+  adverts only** — the cars found by your last search that have both a price
+  and a mileage — and every dot (and every data-table row) opens that exact
+  advert. Before your first search it shows an empty state prompting you to run
+  one.
 
 ## How the data works
 
@@ -57,10 +59,11 @@ CarGurus · Bring a Trailer · AutoTrader.ca
   requests (Cloudflare, bot checks) or change their markup. When a page can't
   be read, the extension falls back to the site's own **Open ↗** search, which
   is already filtered — nothing is silently dropped.
-- **Seed dataset.** [`src/data.js`](src/data.js) ships a representative set of
-  GT350/GT350R market points (live asking, completed sales, and held-out
-  reference stock) so the dashboard demonstrates the asking-vs-achieved gap out
-  of the box.
+- **Real adverts only.** The dashboard shows only cars found by a live search,
+  each linking to its actual advert. Because most big UK portals are
+  JavaScript-rendered and bot-protected, a plain extension `fetch` often can't
+  read them — **eBay UK** is the most reliable source. When nothing readable is
+  found, the chart stays empty rather than showing placeholder cars.
 
 ## Project layout
 
@@ -68,7 +71,7 @@ CarGurus · Bring a Trailer · AutoTrader.ca
 manifest.json          # MV3 manifest
 src/
   sites.js             # marketplace definitions: search URLs + parsers
-  data.js              # seed dataset, FX rates, landed-cost model, regions
+  data.js              # FX rates, landed-cost model, region tiers
   popup.html/.css/.js  # search launcher + live aggregator
   dashboard.html/.css/.js  # mileage-vs-price market dashboard
   background.js        # service worker (defaults + context menu)

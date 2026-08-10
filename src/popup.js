@@ -219,7 +219,7 @@ document.addEventListener('click', (e) => {
   const a = e.target.closest('a[data-listing]');
   if (a) {
     e.preventDefault();
-    chrome.tabs.create({ url: a.href, active: false });
+    chrome.tabs.create({ url: a.href, active: true });
   }
 });
 

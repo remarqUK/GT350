@@ -64,7 +64,10 @@ async function restorePrefs() {
 
 // --- search ------------------------------------------------------------------
 
-const TAB_CONCURRENCY = 3;
+// Only the ACTIVE tab in a window renders normally (background tabs are
+// "hidden" and many sites defer rendering), so we scrape sequentially with one
+// visible tab in a dedicated helper window.
+const TAB_CONCURRENCY = 1;
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function runSearch() {
@@ -98,9 +101,10 @@ async function runSearch() {
     await runPool(SITES, TAB_CONCURRENCY, async (site) => {
       const card = cards.get(site.id);
       try {
-        const listings = await openAndScrape(site, filters, host.windowId);
-        const matches = filterListings(listings, filters);
-        card.setListings(matches);
+        const { rows, debug } = await openAndScrape(site, filters, host.windowId);
+        console.log('[GT350]', site.name, debug, `${rows.length} raw`);
+        const matches = filterListings(rows, filters);
+        card.setListings(matches, debug);
         for (const l of matches) {
           collected.push({
             ...l,
@@ -161,11 +165,15 @@ async function runPool(items, concurrency, worker) {
 // dedicated minimised, unfocused window; otherwise tabs open in the current
 // window. Returns { windowId, close() }.
 async function makeHostWindow(quiet) {
-  if (quiet && chrome.windows?.create) {
+  if (chrome.windows?.create) {
     try {
+      // Normal (not minimised) so its active tab actually renders; unfocused in
+      // quiet mode so it sits behind your current window.
       const win = await chrome.windows.create({
-        focused: false,
-        state: 'minimized',
+        focused: !quiet,
+        state: 'normal',
+        width: 1200,
+        height: 900,
         url: 'about:blank',
       });
       return {
@@ -185,40 +193,75 @@ async function makeHostWindow(quiet) {
   return { windowId: undefined, close: async () => {} };
 }
 
-// Open a site's search in a background tab, wait for it to render, inject the
-// scraper, and return whatever it read. Always closes the tab.
+// Open a site's search in a VISIBLE tab (active in the helper window so it
+// renders), wait for it to load, dismiss cookie-consent, then poll the DOM.
+// Returns { rows, debug }. Always closes the tab.
 async function openAndScrape(site, filters, windowId) {
   const url = site.buildSearchUrl(filters);
-  const createProps = { url, active: false };
+  const createProps = { url, active: true };
   if (windowId != null) createProps.windowId = windowId;
   const tab = await chrome.tabs.create(createProps);
   const tabId = tab.id;
   try {
-    await waitForComplete(tabId, 20000);
-    let listings = [];
-    // Retry a few times: SPA content and XHR often land after "complete".
-    for (let attempt = 0; attempt < 3; attempt++) {
-      await delay(attempt === 0 ? 2800 : 2200);
-      let res;
-      try {
-        res = await chrome.scripting.executeScript({
-          target: { tabId },
-          func: scrapeInPage,
-          args: [site.id],
-        });
-      } catch {
-        res = null;
-      }
-      listings = (res && res[0] && res[0].result) || [];
-      if (listings.length) break;
+    await waitForComplete(tabId, 25000);
+    await tryDismissConsent(tabId);
+
+    let out = { rows: [], debug: null };
+    // Poll: SPA content + XHR often land seconds after "complete".
+    for (let i = 0; i < 8; i++) {
+      await delay(1200);
+      out = await runScrape(tabId, site.id);
+      if (out.rows && out.rows.length) break;
+      if (i === 2) await tryDismissConsent(tabId); // consent may have re-shown
     }
-    return listings;
+    return out;
   } finally {
     try {
       await chrome.tabs.remove(tabId);
     } catch {
       /* already gone */
     }
+  }
+}
+
+async function runScrape(tabId, siteId) {
+  try {
+    const res = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: scrapeInPage,
+      args: [siteId],
+    });
+    const r = res && res[0] && res[0].result;
+    return r && Array.isArray(r.rows) ? r : { rows: [], debug: { error: 'no result' } };
+  } catch (e) {
+    return { rows: [], debug: { error: String((e && e.message) || e) } };
+  }
+}
+
+// Best-effort: click a cookie/consent "accept" control so results can render.
+// Only injectable into frames we have host permission for (inline CMPs like
+// OneTrust); third-party iframe CMPs can't be reached and will show in debug.
+async function tryDismissConsent(tabId) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId, allFrames: true },
+      func: () => {
+        const rx = /accept all|accept & continue|agree|allow all|i accept|accept cookies|got it|continue|yes/i;
+        const ot = document.querySelector('#onetrust-accept-btn-handler, [data-testid="accept-all"], .accept-all');
+        if (ot) {
+          try { ot.click(); } catch {}
+        }
+        const btns = document.querySelectorAll('button, a[role="button"], [role="button"], input[type="submit"], input[type="button"]');
+        for (const b of btns) {
+          const t = (b.innerText || b.value || b.getAttribute('aria-label') || '').trim();
+          if (t && rx.test(t) && t.length < 40) {
+            try { b.click(); } catch {}
+          }
+        }
+      },
+    });
+  } catch {
+    /* consent frame not injectable */
   }
 }
 
@@ -283,20 +326,25 @@ function scrapeInPage(siteId) {
 
   const ebay = () => {
     const res = [];
-    document.querySelectorAll('li.s-item, ul.srp-results > li').forEach((li) => {
-      const a = li.querySelector('a.s-item__link, a[href*="/itm/"]');
-      const title = text(li.querySelector('.s-item__title'));
-      if (!a || !title || /shop on ebay/i.test(title)) return;
-      res.push({
-        title,
-        url: abs(a.getAttribute('href')),
-        price: money(text(li.querySelector('.s-item__price'))),
-        mileage: miles(cardText(li)),
-        year: yr(title),
-        image: imgOf(li),
-        location: text(li.querySelector('.s-item__location')).replace(/from/i, '').trim() || null,
+    // eBay ships several layouts (legacy .s-item and the newer .s-card /
+    // .su-card-container). Cover them all.
+    document
+      .querySelectorAll('li.s-item, .s-item, .s-card, .su-card-container, ul.srp-results > li')
+      .forEach((li) => {
+        const a = li.querySelector('a.s-item__link, a.su-link, a[href*="/itm/"]');
+        const title =
+          text(li.querySelector('.s-item__title, .su-styled-text.primary, [role="heading"]')) || text(a);
+        if (!a || !title || /shop on ebay/i.test(title)) return;
+        res.push({
+          title,
+          url: abs(a.getAttribute('href')),
+          price: money(text(li.querySelector('.s-item__price, .su-styled-text.positive')) || cardText(li)),
+          mileage: miles(cardText(li)),
+          year: yr(title),
+          image: imgOf(li),
+          location: text(li.querySelector('.s-item__location')).replace(/^from /i, '').trim() || null,
+        });
       });
-    });
     return res;
   };
 
@@ -343,34 +391,65 @@ function scrapeInPage(siteId) {
     return res;
   };
 
+  const RE = /gt\s?-?350|shelby/i;
+
   const generic = () => {
     const res = [];
     const seen = new Set();
-    document.querySelectorAll('a[href]').forEach((a) => {
-      const t = text(a);
-      if (!/gt\s?350|shelby/i.test(t)) return;
-      const url = abs(a.getAttribute('href'));
-      if (!url || seen.has(url)) return;
-      seen.add(url);
-      const card = a.closest('article, li, [class*="card"], [class*="listing"], div') || a;
-      const ct = cardText(card);
-      res.push({
-        title: (t || ct).slice(0, 140),
-        url,
-        price: money(ct),
-        mileage: miles(ct),
-        year: yr(t) || yr(ct),
-        image: imgOf(card),
-        location: null,
+    // Any element whose own text mentions the car: find its nearest link and
+    // container, then read price/mileage/year from that container.
+    document
+      .querySelectorAll('a[href], h1, h2, h3, h4, [class*="title"], [class*="Title"]')
+      .forEach((n) => {
+        const t = text(n);
+        if (!RE.test(t)) return;
+        const container =
+          n.closest('article, li, [class*="card"], [class*="listing"], [class*="result"], [class*="product"], [class*="vehicle"]') ||
+          n.parentElement ||
+          n;
+        const a = n.closest('a[href]') || n.querySelector('a[href]') || container.querySelector('a[href]');
+        const url = a && abs(a.getAttribute('href'));
+        if (!url || seen.has(url) || /^javascript:/i.test(url)) return;
+        seen.add(url);
+        const ct = cardText(container);
+        res.push({
+          title: (t || ct).slice(0, 140),
+          url,
+          price: money(ct),
+          mileage: miles(ct),
+          year: yr(t) || yr(ct),
+          image: imgOf(container),
+          location: null,
+        });
       });
-    });
     return res;
   };
 
   let rows = /ebay/.test(siteId) ? ebay() : [];
   if (!rows.length) rows = jsonld();
   if (!rows.length) rows = generic();
-  return rows.filter((x) => /gt\s?350|shelby/i.test(x.title || ''));
+  rows = rows.filter((x) => RE.test(x.title || ''));
+
+  // Diagnostics so a 0 result is explainable without the DOM in front of us.
+  let mentions = 0;
+  try {
+    mentions = (((document.body && document.body.innerText) || '').match(/gt\s?-?350|shelby/gi) || []).length;
+  } catch {
+    mentions = 0;
+  }
+  const debug = {
+    href: location.href,
+    title: document.title,
+    consent: !!document.querySelector(
+      '#onetrust-banner-sdk, [id*="sp_message"], [class*="consent"], [class*="cookie" i], [aria-label*="consent" i]'
+    ),
+    sItems: document.querySelectorAll('.s-item, .s-card, .su-card-container').length,
+    anchors: document.querySelectorAll('a[href]').length,
+    ld: document.querySelectorAll('script[type="application/ld+json"]').length,
+    mentions,
+    rows: rows.length,
+  };
+  return { rows, debug };
 }
 
 // --- rendering ---------------------------------------------------------------
@@ -409,11 +488,11 @@ function renderCard(site, filters) {
 
   return {
     el,
-    setListings(list) {
+    setListings(list, debug) {
       if (!list.length) {
         pill.className = 'pill warn';
         pill.textContent = '0';
-        body.innerHTML = `<div class="empty">Nothing read inline. Open the site's search ↗ — it's pre-filtered.</div>`;
+        body.innerHTML = `<div class="empty">${emptyReason(debug)}</div>`;
         return;
       }
       pill.className = 'pill ok';
@@ -427,6 +506,17 @@ function renderCard(site, filters) {
       body.innerHTML = `<div class="empty">Couldn't read listings (site may block automated access). Open the search ↗.</div>`;
     },
   };
+}
+
+// Turn a scrape debug blob into a short human reason for a 0 result.
+function emptyReason(d) {
+  if (!d) return 'Nothing read. Open the search ↗ — it\'s pre-filtered.';
+  if (d.error) return `Couldn't read the page (${escapeHtml(d.error)}). Open the search ↗.`;
+  if (d.consent) return 'Blocked by a cookie/consent wall. Open the search ↗ once and accept, then retry.';
+  if (d.mentions > 0) {
+    return `Page mentions GT350 ${d.mentions}× but I couldn't parse cards (ld+json:${d.ld}, cards:${d.sItems}). Open ↗ and I'll tune it.`;
+  }
+  return `No GT350 matches on the page (title: “${escapeHtml((d.title || '').slice(0, 40))}”). Open the search ↗.`;
 }
 
 function listingRow(l, site) {

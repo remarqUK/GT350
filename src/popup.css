@@ -108,7 +108,8 @@ body {
   letter-spacing: 0.6px;
   color: var(--muted);
 }
-select {
+select,
+input[type="text"] {
   appearance: none;
   background: var(--panel-2);
   color: var(--text);
@@ -117,8 +118,14 @@ select {
   padding: 7px 9px;
   font-size: 13px;
   cursor: pointer;
+  width: 100%;
 }
-select:focus {
+input[type="text"] {
+  cursor: text;
+  text-transform: uppercase;
+}
+select:focus,
+input[type="text"]:focus {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }

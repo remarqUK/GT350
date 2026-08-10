@@ -167,8 +167,11 @@ export const SITES = [
         keywords: keywordFor(f),
         'year-from': String(f.yearMin),
         'year-to': String(f.yearMax),
+        // AutoTrader UK needs a postcode; a national radius so a car this rare
+        // isn't hidden by distance.
+        postcode: f.postcode || 'LE10 3JD',
+        radius: '1500',
         sort: 'relevance',
-        postcode: '',
       });
       return `https://www.autotrader.co.uk/car-search?${params}`;
     },

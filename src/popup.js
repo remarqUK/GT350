@@ -24,11 +24,19 @@ function fillYears() {
   max.value = '2020';
 }
 
+// Normalise a UK postcode to "OUTWARD INWARD" (inward = last 3 chars).
+function normalizePostcode(raw) {
+  const s = String(raw || '').toUpperCase().replace(/\s+/g, '').trim();
+  if (s.length < 5) return s;
+  return `${s.slice(0, -3)} ${s.slice(-3)}`;
+}
+
 function currentFilters() {
   return {
     yearMin: Number($('#yearMin').value),
     yearMax: Number($('#yearMax').value),
     model: state.model,
+    postcode: normalizePostcode($('#postcode').value) || 'LE10 3JD',
   };
 }
 
@@ -51,6 +59,7 @@ async function restorePrefs() {
     if (prefs) {
       if (prefs.yearMin) $('#yearMin').value = String(prefs.yearMin);
       if (prefs.yearMax) $('#yearMax').value = String(prefs.yearMax);
+      if (prefs.postcode) $('#postcode').value = prefs.postcode;
       if (prefs.model) setModel(prefs.model);
       if (typeof prefs.quiet === 'boolean') {
         state.quiet = prefs.quiet;
@@ -578,7 +587,7 @@ function main() {
   $('#searchBtn').addEventListener('click', runSearch);
   $('#openAllBtn').addEventListener('click', openAll);
   $('#dashboardBtn')?.addEventListener('click', openDashboard);
-  ['#yearMin', '#yearMax'].forEach((s) => $(s).addEventListener('change', savePrefs));
+  ['#yearMin', '#yearMax', '#postcode'].forEach((s) => $(s).addEventListener('change', savePrefs));
   $('#quietMode').addEventListener('change', (e) => {
     state.quiet = e.target.checked;
     savePrefs();

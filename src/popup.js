@@ -235,13 +235,34 @@ async function openAndScrape(site, filters, windowId) {
 
 async function runScrape(tabId, siteId) {
   try {
+    // Scrape every same-origin frame and merge — some sites iframe their
+    // results. (Third-party frames we lack host permission for are skipped.)
     const res = await chrome.scripting.executeScript({
-      target: { tabId },
+      target: { tabId, allFrames: true },
       func: scrapeInPage,
       args: [siteId],
     });
-    const r = res && res[0] && res[0].result;
-    return r && Array.isArray(r.rows) ? r : { rows: [], debug: { error: 'no result' } };
+    const results = (res || []).map((r) => r && r.result).filter((r) => r && Array.isArray(r.rows));
+    if (!results.length) return { rows: [], debug: { error: 'no result' } };
+
+    const rows = [];
+    const seen = new Set();
+    let debug = null;
+    for (const r of results) {
+      for (const row of r.rows) {
+        const k = row.url || row.title;
+        if (k && !seen.has(k)) {
+          seen.add(k);
+          rows.push(row);
+        }
+      }
+      // Prefer the frame that found the most / mentioned the car most.
+      const score = (d) => (d ? (d.rows || 0) * 1000 + (d.mentions || 0) : -1);
+      if (score(r.debug) > score(debug)) debug = r.debug;
+    }
+    debug = { ...(debug || {}), frames: results.length, rows: rows.length };
+    debug.sample = results.flatMap((r) => (r.debug && r.debug.sample) || []).slice(0, 3);
+    return { rows, debug };
   } catch (e) {
     return { rows: [], debug: { error: String((e && e.message) || e) } };
   }
@@ -405,32 +426,37 @@ function scrapeInPage(siteId) {
   const generic = () => {
     const res = [];
     const seen = new Set();
-    // Any element whose own text mentions the car: find its nearest link and
-    // container, then read price/mileage/year from that container.
-    document
-      .querySelectorAll('a[href], h1, h2, h3, h4, [class*="title"], [class*="Title"]')
-      .forEach((n) => {
-        const t = text(n);
-        if (!RE.test(t)) return;
-        const container =
-          n.closest('article, li, [class*="card"], [class*="listing"], [class*="result"], [class*="product"], [class*="vehicle"]') ||
-          n.parentElement ||
-          n;
-        const a = n.closest('a[href]') || n.querySelector('a[href]') || container.querySelector('a[href]');
-        const url = a && abs(a.getAttribute('href'));
-        if (!url || seen.has(url) || /^javascript:/i.test(url)) return;
-        seen.add(url);
-        const ct = cardText(container);
-        res.push({
-          title: (t || ct).slice(0, 140),
-          url,
-          price: money(ct),
-          mileage: miles(ct),
-          year: yr(t) || yr(ct),
-          image: imgOf(container),
-          location: null,
-        });
+    // Look at listing-shaped containers whose text mentions the car — the model
+    // is often a subtitle ("Ford Mustang" heading + "5.2 V8 GT350" below), so
+    // matching the container, not just the heading, is what catches them.
+    const cards = document.querySelectorAll(
+      'article, li, [class*="card"], [class*="listing"], [class*="result"], [class*="product"], [class*="vehicle"], [data-testid*="listing" i], [data-testid*="advert" i], [data-testid*="result" i]'
+    );
+    cards.forEach((card) => {
+      const ct = cardText(card);
+      if (!RE.test(ct)) return;
+      const a = card.querySelector('a[href]');
+      const url = a && abs(a.getAttribute('href'));
+      if (!url || seen.has(url) || /^javascript:/i.test(url)) return;
+      seen.add(url);
+      const h = card.querySelector('h1, h2, h3, h4, [class*="title" i], [data-testid*="title" i]');
+      let title = (text(h) || text(a) || '').trim();
+      // Ensure the title carries the GT350/Shelby token so downstream filters
+      // keep it even when the heading is just "Ford Mustang".
+      if (!RE.test(title)) {
+        const m = ct.match(/([\w.\-/ ]*?(?:shelby|gt\s?-?350r?)[\w.\-/ ]*)/i);
+        title = `${title ? title + ' ' : ''}${m ? m[1].trim() : 'GT350'}`.trim();
+      }
+      res.push({
+        title: title.slice(0, 140),
+        url,
+        price: money(ct),
+        mileage: miles(ct),
+        year: yr(title) || yr(ct),
+        image: imgOf(card),
+        location: null,
       });
+    });
     return res;
   };
 
@@ -446,6 +472,27 @@ function scrapeInPage(siteId) {
   } catch {
     mentions = 0;
   }
+  // Capture a few real container snippets that mention the car, so selectors
+  // can be written against the actual DOM without seeing the live page.
+  const sample = [];
+  try {
+    const cand = document.querySelectorAll('a[href], h1, h2, h3, h4, [class*="title"], [class*="Title"]');
+    const used = new Set();
+    for (const n of cand) {
+      if (!RE.test(n.textContent || '')) continue;
+      const c =
+        n.closest('article, li, [class*="card"], [class*="listing"], [class*="result"], [class*="product"], [class*="vehicle"]') ||
+        n.parentElement ||
+        n;
+      if (used.has(c)) continue;
+      used.add(c);
+      sample.push((c.outerHTML || '').replace(/\s+/g, ' ').slice(0, 600));
+      if (sample.length >= 3) break;
+    }
+  } catch {
+    /* ignore */
+  }
+
   const debug = {
     href: location.href,
     title: document.title,
@@ -457,6 +504,7 @@ function scrapeInPage(siteId) {
     ld: document.querySelectorAll('script[type="application/ld+json"]').length,
     mentions,
     rows: rows.length,
+    sample,
   };
   return { rows, debug };
 }
@@ -501,7 +549,7 @@ function renderCard(site, filters) {
       if (!list.length) {
         pill.className = 'pill warn';
         pill.textContent = '0';
-        body.innerHTML = `<div class="empty">${emptyReason(debug)}</div>`;
+        body.innerHTML = `<div class="empty">${emptyReason(debug)}</div>${diagHtml(debug)}`;
         return;
       }
       pill.className = 'pill ok';
@@ -515,6 +563,16 @@ function renderCard(site, filters) {
       body.innerHTML = `<div class="empty">Couldn't read listings (site may block automated access). Open the search ↗.</div>`;
     },
   };
+}
+
+// Collapsible raw diagnostics (incl. sample listing HTML) to copy and share.
+function diagHtml(debug) {
+  if (!debug) return '';
+  const json = JSON.stringify(debug, null, 2);
+  return `<details class="diag">
+      <summary>Diagnostics <button class="link" data-copy>copy</button></summary>
+      <pre>${escapeHtml(json)}</pre>
+    </details>`;
 }
 
 // Turn a scrape debug blob into a short human reason for a 0 result.
@@ -574,6 +632,18 @@ document.addEventListener('click', (e) => {
   if (a) {
     e.preventDefault();
     chrome.tabs.create({ url: a.href, active: true });
+    return;
+  }
+  const copy = e.target.closest('[data-copy]');
+  if (copy) {
+    e.preventDefault();
+    const pre = copy.closest('.diag')?.querySelector('pre');
+    if (pre) {
+      navigator.clipboard?.writeText(pre.textContent).then(() => {
+        copy.textContent = 'copied';
+        setTimeout(() => (copy.textContent = 'copy'), 1200);
+      });
+    }
   }
 });
 

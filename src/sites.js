@@ -200,16 +200,10 @@ export const SITES = [
     id: 'pistonheads',
     name: 'PistonHeads',
     color: '#00a3e0',
-    homepage: 'https://www.pistonheads.com/classifieds',
+    homepage: 'https://www.pistonheads.com/buy',
     buildSearchUrl(f) {
-      const params = new URLSearchParams({
-        Category: 'used-cars',
-        Keyword: `Shelby ${keywordFor(f)}`,
-        RangeYearFrom: String(f.yearMin),
-        RangeYearTo: String(f.yearMax),
-        ResultsSort: 'Default',
-      });
-      return `https://www.pistonheads.com/classifieds?${params}`;
+      const params = new URLSearchParams({ keywords: `Shelby ${keywordFor(f)}` });
+      return `https://www.pistonheads.com/buy/search?${params}`;
     },
     parse(doc) {
       const base = 'https://www.pistonheads.com/';
